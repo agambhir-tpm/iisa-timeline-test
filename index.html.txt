@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IISA Timeline</title>
+    <style>
+        /* PASTE YOUR CSS CODE HERE */
+    </style>
+</head>
+<body>
+
+    <!--
+  ═══════════════════════════════════════════════════════════════════
+  IISA EPIC TIMELINE  —  Confluence embed (iframe)
+  ═══════════════════════════════════════════════════════════════════
+
+  WHY IFRAME INSTEAD OF FETCH
+  ───────────────────────────
+  fetch() fails ("Failed to fetch") because GAS web apps deployed
+  with org-restricted access redirect to Google login — and that
+  redirect has no CORS headers, so the browser blocks it.
+
+  The iframe approach avoids this entirely:
+    • The browser loads the full GAS web app URL inside the frame.
+    • google.script.run works because GAS serves the HTML itself.
+    • No CORS, no auth redirect issues.
+
+  SETUP  (2 steps)
+  ────────────────
+  1. Replace PASTE_YOUR_GAS_URL_HERE below with your Web App URL:
+       https://script.google.com/macros/s/AKfycb.../exec
+
+  2. In Confluence, add an HTML macro and paste this whole file.
+     (Confluence Server/DC: built-in HTML macro)
+     (Confluence Cloud: use "HTML for Confluence" or "Advanced Macro" app,
+      or ask your admin to allowlist script.google.com for iframes.)
+  ═══════════════════════════════════════════════════════════════════
+-->
+
+<style>
+  #iisa-wrap {
+    width: 100%;
+    height: 88vh;
+    min-height: 560px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+    background: #f1f5f9;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  #iisa-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+  #iisa-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 14px;
+    pointer-events: none;
+  }
+  .iisa-spinner {
+    width: 26px; height: 26px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: iisaSpin 0.65s linear infinite;
+  }
+  @keyframes iisaSpin { to { transform: rotate(360deg); } }
+  #iisa-error {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    background: #fef3c7;
+    color: #78350f;
+    font-size: 13px;
+    text-align: center;
+    padding: 32px;
+    line-height: 1.7;
+  }
+  #iisa-error a { color: #b45309; font-weight: 600; }
+  #iisa-error code { background: #fde68a; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+</style>
+
+<div id="iisa-wrap">
+  <!-- Loading indicator -->
+  <div id="iisa-loading">
+    <div class="iisa-spinner"></div>
+    <span>Loading IISA Epic Timeline…</span>
+  </div>
+
+  <!-- Error fallback -->
+  <div id="iisa-error">
+    <div style="font-size:32px">⚠️</div>
+    <div>
+      <strong>Could not load the timeline.</strong><br>
+      Confluence is blocking iframes from <code>script.google.com</code>.<br><br>
+      Ask your Confluence admin to allowlist <code>script.google.com</code>,<br>
+      or <a id="iisa-open-link" href="#" target="_blank">open the timeline in a new tab ↗</a>
+    </div>
+  </div>
+
+  <!--
+    ★ REPLACE THE src VALUE WITH YOUR GAS WEB APP URL ★
+  -->
+  <iframe
+    id="iisa-frame"
+    src="https://script.google.com/a/macros/coreweave.com/s/AKfycbws0qbqGVkuXSktuZBN8dWfxPJ0xj4n72Fn5lKpCj3wzZChwpFj_TeTr7MLA-jLMxlvrg/exec"
+    title="IISA Epic Timeline"
+    allow="same-origin"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox">
+  </iframe>
+</div>
+
+<script>
+(function () {
+  var frame   = document.getElementById('iisa-frame');
+  var loading = document.getElementById('iisa-loading');
+  var error   = document.getElementById('iisa-error');
+  var openLink = document.getElementById('iisa-open-link');
+
+  // Mirror GAS URL to the fallback "open in new tab" link
+  openLink.href = frame.src;
+
+  function showError() {
+    loading.style.display = 'none';
+    frame.style.display   = 'none';
+    error.style.display   = 'flex';
+  }
+
+  frame.addEventListener('load', function () {
+    loading.style.display = 'none';
+
+    // Cross-origin check: if we can read location it's not GAS (login redirect)
+    try {
+      var loc = frame.contentWindow.location.href;
+      if (loc.indexOf('accounts.google.com') !== -1) showError();
+    } catch (e) {
+      // Can't read location = cross-origin = GAS loaded correctly ✓
+    }
+  });
+
+  frame.addEventListener('error', showError);
+
+  // Safety net: if iframe hasn't loaded after 60 s, show error
+  var guard = setTimeout(showError, 60000);
+  frame.addEventListener('load', function () { clearTimeout(guard); });
+})();
+</script>
+
+    <script>
+        <!--
+  ═══════════════════════════════════════════════════════════════════
+  IISA EPIC TIMELINE  —  Confluence HTML Macro version
+  ═══════════════════════════════════════════════════════════════════
+
+  HOW TO USE
+  ──────────
+  1. In Code.gs, make sure doGet() is updated to handle ?action=getEpics
+     (see the updated Code.gs file).
+
+  2. Redeploy your GAS web app:
+       Apps Script → Deploy → Manage deployments → Edit → New version → Deploy
+     ⚠ IMPORTANT: set "Who has access" to "Anyone" (not "Anyone in org")
+       so the fetch below can reach it without a Google login redirect.
+
+  3. Copy your GAS Web App URL (looks like:
+       https://script.google.com/a/macros/coreweave.com/s/AKfycbws0qbqGVkuXSktuZBN8dWfxPJ0xj4n72Fn5lKpCj3wzZChwpFj_TeTr7MLA-jLMxlvrg/exec )
+     and paste it as the value of GAS_URL below.
+
+  4. In Confluence, add an "HTML" macro (or "HTML for Confluence" app)
+     and paste the entire contents of this file into it.
+  ═══════════════════════════════════════════════════════════════════
+-->
+<script>
+  /* ── ⚙ CONFIG — paste your GAS web app URL here ─────────────── */
+  var GAS_URL = 'https://script.google.com/a/macros/coreweave.com/s/AKfycbws0qbqGVkuXSktuZBN8dWfxPJ0xj4n72Fn5lKpCj3wzZChwpFj_TeTr7MLA-jLMxlvrg/exec';
+  /* ────────────────────────────────────────────────────────────── */
+</script>
+
+<style>
+/* Scope all styles to avoid clashing with Confluence's own CSS */
+#iisa-root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+  color: #1e293b;
+  background: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  height: 85vh;
+  min-height: 500px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+}
+
+/* ── Top Bar ──────────────────────────────────────────────────── */
+#iisa-root #topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 10px 18px;
+  background: #0f172a;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 200;
+}
+#iisa-root #topbar h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: #f8fafc;
+}
+
+/* ── Refresh Button ───────────────────────────────────────────── */
+#iisa-root #refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#iisa-root #refresh-btn:hover:not(:disabled) { background: #2563eb; }
+#iisa-root #refresh-btn:disabled { background: #475569; cursor: not-allowed; }
+#iisa-root #refresh-icon { display: inline-block; }
+#iisa-root #refresh-btn.spinning #refresh-icon { animation: iisa-spin 0.7s linear infinite; }
+@keyframes iisa-spin { to { transform: rotate(360deg); } }
+
+/* ── Divider ──────────────────────────────────────────────────── */
+#iisa-root .topbar-divider {
+  width: 1px; height: 28px;
+  background: rgba(255,255,255,0.12);
+  flex-shrink: 0;
+}
+
+/* ── Backlog Checkboxes ───────────────────────────────────────── */
+#iisa-root #backlog-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+#iisa-root .backlog-cb-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #cbd5e1;
+  white-space: nowrap;
+  user-select: none;
+}
+#iisa-root .backlog-cb-label input[type=checkbox] {
+  width: 14px; height: 14px;
+  cursor: pointer;
+}
+#iisa-root .backlog-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ── Filter Group ─────────────────────────────────────────────── */
+#iisa-root #filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#iisa-root .filter-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* ── Multi-select ─────────────────────────────────────────────── */
+#iisa-root .ms-wrapper { position: relative; }
+#iisa-root .ms-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 130px;
+  max-width: 200px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+#iisa-root .ms-trigger:hover { background: rgba(255,255,255,0.14); }
+#iisa-root .ms-trigger .ms-text { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+#iisa-root .ms-trigger .ms-arrow { font-size: 9px; flex-shrink: 0; color: #94a3b8; }
+#iisa-root .ms-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.16);
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 500;
+}
+#iisa-root .ms-dropdown.open { display: block; }
+#iisa-root .ms-empty {
+  padding: 12px 14px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-style: italic;
+}
+#iisa-root .ms-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  cursor: pointer;
+  color: #374151;
+  font-size: 12px;
+}
+#iisa-root .ms-item:hover { background: #f8fafc; }
+#iisa-root .ms-item input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+#iisa-root .ms-item label { cursor: pointer; white-space: nowrap; }
+
+/* ── Legend ───────────────────────────────────────────────────── */
+#iisa-root #legend {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+#iisa-root .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+#iisa-root .legend-swatch { width: 24px; height: 9px; border-radius: 3px; }
+#iisa-root #status-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255,255,255,0.12);
+}
+#iisa-root .sl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #64748b; }
+#iisa-root .sl-bar { width: 20px; height: 8px; border-radius: 2px; background: #6b7280; }
+#iisa-root .sl-bar.s-todo    { border: 2px dashed #9ca3af; background: transparent; }
+#iisa-root .sl-bar.s-doing   { border: 2px solid rgba(0,0,0,0.25); background: #6b7280; }
+#iisa-root .sl-bar.s-done    { opacity: 0.4; }
+#iisa-root .sl-bar.s-blocked { border: 2px solid #ef4444; background: #6b7280; }
+
+/* ── RAG Status colors ────────────────────────────────────────── */
+.rag-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.rag-red    { background: #ef4444; }
+.rag-amber  { background: #f59e0b; }
+.rag-green  { background: #22c55e; }
+.rag-grey   { background: #94a3b8; }
+
+/* RAG option labels in the dropdown */
+#iisa-root .ms-item .rag-dot { width: 9px; height: 9px; margin-right: 5px; }
+
+/* ── Messages ─────────────────────────────────────────────────── */
+#iisa-root #messages { flex-shrink: 0; }
+#iisa-root .msg-warn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px;
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  color: #78350f;
+  font-size: 12px;
+}
+#iisa-root .msg-err {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px;
+  background: #fee2e2;
+  border-left: 4px solid #ef4444;
+  color: #7f1d1d;
+  font-size: 12px;
+}
+
+/* ── Timeline Container ───────────────────────────────────────── */
+#iisa-root #timeline-container {
+  flex: 1;
+  overflow: auto;
+  background: #f1f5f9;
+  position: relative;
+}
+#iisa-root #timeline-inner {
+  min-width: max-content;
+  background: white;
+  min-height: 100%;
+}
+
+/* ── Timeline Header ──────────────────────────────────────────── */
+#iisa-root #tl-header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: white;
+  border-bottom: 2px solid #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+#iisa-root .tl-corner {
+  width: 180px; min-width: 180px; flex-shrink: 0;
+  position: sticky; left: 0; z-index: 110;
+  background: #f8fafc;
+  border-right: 2px solid #cbd5e1;
+  display: flex; flex-direction: column;
+}
+#iisa-root .corner-top, #iisa-root .corner-bot {
+  display: flex; align-items: center; padding: 0 12px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8;
+}
+#iisa-root .corner-top { height: 26px; border-bottom: 1px solid #e2e8f0; }
+#iisa-root .corner-bot { height: 22px; }
+#iisa-root #tl-header-canvas { flex: 1; position: relative; overflow: hidden; }
+#iisa-root .month-row { display: flex; height: 26px; border-bottom: 1px solid #e2e8f0; }
+#iisa-root .month-cell {
+  flex-shrink: 0; display: flex; align-items: center; padding: 0 8px;
+  font-size: 11px; font-weight: 700; color: #475569;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  background: #f8fafc; border-right: 1px solid #cbd5e1;
+  overflow: hidden; white-space: nowrap;
+}
+#iisa-root .week-row { display: flex; height: 22px; }
+#iisa-root .week-cell {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #94a3b8; border-right: 1px solid #e8edf2;
+}
+#iisa-root .week-cell.is-current { background: #fef9c3; color: #713f12; font-weight: 700; }
+
+/* ── Timeline Body ────────────────────────────────────────────── */
+#iisa-root .tl-row { display: flex; border-bottom: 1px solid #e2e8f0; }
+#iisa-root .tl-row:last-child { border-bottom: none; }
+#iisa-root .tl-row:hover .row-label  { background: #f0f9ff; }
+#iisa-root .tl-row:hover .row-canvas { background: #fafcff; }
+#iisa-root .row-label {
+  width: 180px; min-width: 180px; flex-shrink: 0;
+  position: sticky; left: 0; z-index: 20;
+  background: white; border-right: 2px solid #cbd5e1;
+  display: flex; align-items: center; padding: 0 14px;
+  font-size: 12px; font-weight: 600; color: #374151;
+}
+#iisa-root .row-label.unassigned { color: #94a3b8; font-weight: 400; font-style: italic; }
+#iisa-root .row-canvas { position: relative; flex: 1; overflow: hidden; }
+#iisa-root .cw-band {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(254,249,195,0.55); pointer-events: none; z-index: 0;
+}
+#iisa-root .today-line {
+  position: absolute; top: 0; bottom: 0;
+  width: 2px; background: #ef4444; opacity: 0.75;
+  pointer-events: none; z-index: 4;
+}
+#iisa-root .epic-bar {
+  position: absolute; border-radius: 5px;
+  display: flex; align-items: center;
+  padding: 0 7px; font-size: 11px; font-weight: 500; color: white;
+  cursor: pointer; z-index: 10; overflow: hidden; white-space: nowrap;
+  transition: filter 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+#iisa-root .epic-bar:hover {
+  filter: brightness(1.12); transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 30;
+}
+#iisa-root .epic-bar .bar-text { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+#iisa-root .st-todo    { border: 2px dashed rgba(255,255,255,0.6); opacity: 0.78; }
+#iisa-root .st-inprog  { border: 2px solid rgba(255,255,255,0.35); }
+#iisa-root .st-done    { opacity: 0.42; border: 2px solid rgba(0,0,0,0.12); }
+#iisa-root .st-blocked { border: 2px solid #ef4444; box-shadow: 0 0 0 1px #fca5a5; }
+#iisa-root .st-other   { border: 2px solid rgba(255,255,255,0.2); }
+
+/* ── Tooltip ──────────────────────────────────────────────────── */
+#iisa-tooltip {
+  position: fixed;
+  background: #1e293b; color: white;
+  border-radius: 9px; padding: 11px 15px;
+  font-size: 12px; line-height: 1.65;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.28);
+  pointer-events: none; z-index: 9999;
+  max-width: 290px; display: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+#iisa-tooltip .tt-key a { color: #60a5fa; font-weight: 700; font-size: 13px; text-decoration: none; }
+#iisa-tooltip .tt-summary { font-weight: 500; color: #f8fafc; margin: 4px 0 8px; font-size: 12px; line-height: 1.4; white-space: normal; word-break: break-word; }
+#iisa-tooltip .tt-row { display: flex; gap: 8px; font-size: 11px; }
+#iisa-tooltip .tt-lbl { color: #64748b; min-width: 58px; flex-shrink: 0; }
+#iisa-tooltip .tt-val { color: #cbd5e1; }
+
+/* ── Loading ──────────────────────────────────────────────────── */
+#iisa-root #loading-overlay {
+  position: absolute; inset: 0;
+  background: rgba(248,250,252,0.9);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px; z-index: 8000;
+  font-size: 14px; color: #475569;
+}
+#iisa-root .spinner {
+  width: 38px; height: 38px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: iisa-spin2 0.65s linear infinite;
+}
+@keyframes iisa-spin2 { to { transform: rotate(360deg); } }
+
+/* ── Empty State ──────────────────────────────────────────────── */
+#iisa-root #empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 300px; color: #94a3b8; font-size: 14px; gap: 10px;
+}
+#iisa-root #empty-state .es-icon { font-size: 36px; }
+</style>
+
+<!-- ══ Root wrapper (scopes all styles) ═══════════════════════════ -->
+<div id="iisa-root">
+
+  <!-- Top Bar -->
+  <div id="topbar">
+    <h1>📅 IISA Epic Timeline</h1>
+    <button id="refresh-btn" onclick="iisaRefreshData()">
+      <span id="refresh-icon">↻</span> Refresh
+    </button>
+    <div class="topbar-divider"></div>
+    <div id="backlog-group">
+      <span class="filter-label">Backlogs:</span>
+      <label class="backlog-cb-label">
+        <input type="checkbox" id="cb-integrations" checked onchange="iisaApplyFilters()">
+        <span class="backlog-dot" style="background:#0891b2"></span>
+        Integrations Backlog
+      </label>
+      <label class="backlog-cb-label">
+        <input type="checkbox" id="cb-agentic" checked onchange="iisaApplyFilters()">
+        <span class="backlog-dot" style="background:#7c3aed"></span>
+        AI Agentic Backlog
+      </label>
+    </div>
+    <div class="topbar-divider"></div>
+    <div id="filter-group">
+      <span class="filter-label">Filter:</span>
+      <div class="ms-wrapper">
+        <div class="ms-trigger" onclick="iisaToggleDropdown('status-dd',event)">
+          <span class="ms-text" id="status-lbl">All statuses</span>
+          <span class="ms-arrow">▾</span>
+        </div>
+        <div class="ms-dropdown" id="status-dd"><div class="ms-empty">Loading…</div></div>
+      </div>
+      <div class="ms-wrapper">
+        <div class="ms-trigger" onclick="iisaToggleDropdown('labels-dd',event)">
+          <span class="ms-text" id="labels-lbl">All labels</span>
+          <span class="ms-arrow">▾</span>
+        </div>
+        <div class="ms-dropdown" id="labels-dd"><div class="ms-empty">Loading…</div></div>
+      </div>
+      <div class="ms-wrapper">
+        <div class="ms-trigger" onclick="iisaToggleDropdown('rag-dd',event)">
+          <span class="ms-text" id="rag-lbl">All RAG</span>
+          <span class="ms-arrow">▾</span>
+        </div>
+        <div class="ms-dropdown" id="rag-dd"><div class="ms-empty">Loading…</div></div>
+      </div>
+    </div>
+    <div id="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#0891b2"></div><span>Integrations</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#7c3aed"></div><span>AI Agentic</span></div>
+      <div id="status-legend">
+        <div class="sl-item"><div class="sl-bar s-todo"></div><span>To Do</span></div>
+        <div class="sl-item"><div class="sl-bar s-doing"></div><span>In Progress</span></div>
+        <div class="sl-item"><div class="sl-bar s-done"></div><span>Done</span></div>
+        <div class="sl-item"><div class="sl-bar s-blocked"></div><span>Blocked</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="messages"></div>
+
+  <!-- Timeline -->
+  <div id="timeline-container" style="position:relative">
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <div>Fetching epics from JIRA…</div>
+    </div>
+    <div id="timeline-inner">
+      <div id="empty-state"><div class="es-icon">📡</div><div>Connecting…</div></div>
+    </div>
+  </div>
+
+</div><!-- /iisa-root -->
+
+<!-- Tooltip lives outside iisa-root so it can overlay Confluence chrome -->
+<div id="iisa-tooltip"></div>
+
+<script>
+(function() {
+/* ── Namespace everything to avoid clashing with Confluence JS ── */
+
+var WEEK_W      = 72;
+var LABEL_W     = 180;
+var BAR_H       = 26;
+var BAR_GAP     = 5;
+var ROW_PAD_TOP = 8;
+var ROW_PAD_BOT = 8;
+
+var BACKLOG_COLOR = {
+  'Integrations Backlog': '#0891b2',
+  'AI Agentic Backlog':   '#7c3aed'
+};
+
+var MONTHS_LONG = ['January','February','March','April','May','June',
+                   'July','August','September','October','November','December'];
+
+var iisaAllEpics   = [];
+var iisaEpicTipMap = {};
+var iisaLoadTimer  = null;
+var iisaRagFieldPresent = false;  // set to true when backend returns ragFieldId
+
+/* ── Date helpers ─────────────────────────────────────────────── */
+function todayDate() {
+  var d = new Date(); d.setHours(0,0,0,0); return d;
+}
+function getMonday(d) {
+  var dt = new Date(d), day = dt.getDay(), off = day===0?-6:1-day;
+  dt.setDate(dt.getDate()+off); dt.setHours(0,0,0,0); return dt;
+}
+function addDays(d,n)   { var dt=new Date(d); dt.setDate(dt.getDate()+n); return dt; }
+function addMonths(d,n) { var dt=new Date(d); dt.setMonth(dt.getMonth()+n); dt.setHours(0,0,0,0); return dt; }
+function fmtDate(d)     { return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'; }
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Data fetch via fetch() → GAS JSON endpoint ──────────────── */
+window.iisaRefreshData = function() {
+  iisaShowLoading(true);
+  iisaSetRefreshState(true);
+  iisaClearMessages();
+
+  // Timeout guard — 50 s
+  iisaLoadTimer = setTimeout(function() {
+    iisaShowLoading(false);
+    iisaSetRefreshState(false);
+    iisaShowMsg('error',
+      'Request timed out (50 s). Check that GAS_URL is correct, the web app is deployed ' +
+      'with "Anyone" access, and JIRA credentials are set in Script Properties.');
+    iisaRenderEmpty('Timed out.');
+  }, 50000);
+
+  fetch(GAS_URL + '?action=getEpics', { redirect: 'follow' })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.json();
+    })
+    .then(iisaOnDataLoaded)
+    .catch(function(err) {
+      iisaOnDataError({ message: err.message || String(err) });
+    });
+};
+
+function iisaOnDataLoaded(result) {
+  clearTimeout(iisaLoadTimer);
+  iisaShowLoading(false);
+  iisaSetRefreshState(false);
+
+  if (!result) {
+    iisaShowMsg('error', 'Server returned no data.');
+    iisaRenderEmpty('No data returned.');
+    return;
+  }
+  if (result.warnings && result.warnings.length) {
+    result.warnings.forEach(function(w) { iisaShowMsg('warn', w); });
+  }
+  iisaRagFieldPresent = !!result.ragFieldId;
+  iisaAllEpics = iisaProcessEpics(result.epics || []);
+  iisaPopulateFilterDropdowns();
+  iisaApplyFilters();
+}
+
+function iisaOnDataError(err) {
+  clearTimeout(iisaLoadTimer);
+  iisaShowLoading(false);
+  iisaSetRefreshState(false);
+  iisaShowMsg('error', 'Could not reach GAS endpoint: ' + (err.message || String(err)));
+  iisaRenderEmpty('Connection failed — check GAS_URL and deployment settings.');
+}
+
+/* ── Process epics ────────────────────────────────────────────── */
+function iisaProcessEpics(raw) {
+  var now = todayDate();
+  return raw.map(function(e) {
+    var endDate, dueDateRaw = null;
+    if (e.dueDate) {
+      var p = e.dueDate.split('-');
+      endDate = new Date(+p[0], +p[1]-1, +p[2]);
+      dueDateRaw = endDate;
+    } else {
+      endDate = addDays(now, 84);
+    }
+    return {
+      key:        e.key,
+      summary:    e.summary || '(no summary)',
+      assignee:   e.assignee || 'Unassigned',
+      status:     e.status   || 'Unknown',
+      labels:     Array.isArray(e.labels) ? e.labels : [],
+      backlog:    e.backlog  || '',
+      startDate:  addDays(endDate, -28),
+      endDate:    endDate,
+      dueDateRaw: dueDateRaw
+    };
+  });
+}
+
+/* ── Filters ──────────────────────────────────────────────────── */
+function iisaPopulateFilterDropdowns() {
+  var statuses = [], labels = [], ragValues = [];
+  iisaAllEpics.forEach(function(e) {
+    if (e.status && statuses.indexOf(e.status)===-1) statuses.push(e.status);
+    e.labels.forEach(function(l){ if(l && labels.indexOf(l)===-1) labels.push(l); });
+    if (e.ragStatus && ragValues.indexOf(e.ragStatus)===-1) ragValues.push(e.ragStatus);
+  });
+  statuses.sort(); labels.sort();
+  // Sort RAG: Red → Amber → Green → others
+  var ragOrder = ['red','amber','green'];
+  ragValues.sort(function(a,b){
+    var ai=ragOrder.indexOf(a.toLowerCase()), bi=ragOrder.indexOf(b.toLowerCase());
+    if(ai===-1) ai=99; if(bi===-1) bi=99;
+    return ai-bi;
+  });
+
+  iisaBuildDropdown('status-dd','status-lbl',statuses,'All statuses');
+  iisaBuildDropdown('labels-dd','labels-lbl',labels,'All labels');
+  iisaBuildRagDropdown('rag-dd','rag-lbl',ragValues);
+}
+
+function iisaBuildRagDropdown(ddId, lblId, items) {
+  var dd = document.getElementById(ddId);
+  if (!items.length) {
+    dd.innerHTML = '<div class="ms-empty">' + (iisaRagFieldPresent ? 'No RAG values found' : 'RAG field not configured') + '</div>';
+    return;
+  }
+  var html = '';
+  items.forEach(function(item) {
+    var sid     = ddId+'-'+item.replace(/[^a-z0-9]/gi,'_');
+    var dotCls  = iisaRagCssClass(item);
+    html += '<div class="ms-item">'
+          + '<input type="checkbox" id="'+esc(sid)+'" value="'+esc(item)+'"'
+          + ' onchange="iisaSyncLabel(\''+esc(ddId)+'\',\''+esc(lblId)+'\',\'All RAG\');iisaApplyFilters()">'
+          + '<span class="rag-dot '+dotCls+'"></span>'
+          + '<label for="'+esc(sid)+'">'+esc(item)+'</label>'
+          + '</div>';
+  });
+  dd.innerHTML = html;
+}
+
+function iisaBuildDropdown(ddId, lblId, items, placeholder) {
+  var dd = document.getElementById(ddId);
+  if (!items.length) { dd.innerHTML='<div class="ms-empty">None available</div>'; return; }
+  var html = '';
+  items.forEach(function(item) {
+    var sid = ddId+'-'+item.replace(/[^a-z0-9]/gi,'_');
+    html += '<div class="ms-item">'
+          + '<input type="checkbox" id="'+esc(sid)+'" value="'+esc(item)+'"'
+          + ' onchange="iisaSyncLabel(\''+esc(ddId)+'\',\''+esc(lblId)+'\',\''+esc(placeholder)+'\');iisaApplyFilters()">'
+          + '<label for="'+esc(sid)+'">'+esc(item)+'</label></div>';
+  });
+  dd.innerHTML = html;
+}
+
+window.iisaSyncLabel = function(ddId, lblId, placeholder) {
+  var checked = iisaGetChecked(ddId);
+  var el = document.getElementById(lblId);
+  if (!el) return;
+  el.textContent = !checked.length ? placeholder : checked.length===1 ? checked[0] : checked.length+' selected';
+};
+
+function iisaGetChecked(ddId) {
+  var out = [];
+  document.getElementById(ddId).querySelectorAll('input:checked').forEach(function(cb){ out.push(cb.value); });
+  return out;
+}
+
+window.iisaApplyFilters = function() {
+  var showInt = document.getElementById('cb-integrations').checked;
+  var showAI  = document.getElementById('cb-agentic').checked;
+  var selStat = iisaGetChecked('status-dd');
+  var selLbl  = iisaGetChecked('labels-dd');
+  var selRag  = iisaGetChecked('rag-dd');
+
+  var filtered = iisaAllEpics.filter(function(e) {
+    if (e.backlog==='Integrations Backlog' && !showInt) return false;
+    if (e.backlog==='AI Agentic Backlog'   && !showAI)  return false;
+    if (selStat.length && selStat.indexOf(e.status)===-1) return false;
+    if (selLbl.length) {
+      if (!e.labels.some(function(l){ return selLbl.indexOf(l)!==-1; })) return false;
+    }
+    if (selRag.length) {
+      // Match on ragStatus; treat null/undefined as "Not set" for filtering
+      var rag = e.ragStatus || 'Not set';
+      if (selRag.indexOf(rag)===-1) return false;
+    }
+    return true;
+  });
+
+  filtered.length ? iisaBuildTimeline(filtered) : iisaRenderEmpty('No epics match the current filters.');
+};
+
+/* ── Timeline ─────────────────────────────────────────────────── */
+function iisaBuildTimeline(epics) {
+  var now      = todayDate();
+  var tlStart  = getMonday(addMonths(now, -6));
+  var minEnd   = addMonths(now, 6);
+  var maxEnd   = epics.reduce(function(mx,e){ return e.endDate>mx?e.endDate:mx; }, minEnd);
+  var tlEnd    = getMonday(addDays(maxEnd, 14));
+  var totalWeeks = Math.round((tlEnd-tlStart)/(7*86400000));
+  var totalWidth = totalWeeks * WEEK_W;
+
+  var weeks = [];
+  for (var w=0; w<totalWeeks; w++) {
+    var ws = addDays(tlStart, w*7), we = addDays(ws,7);
+    weeks.push({ index:w, date:ws, x:w*WEEK_W, isCurrent:ws<=now&&we>now,
+                 label:(ws.getMonth()+1)+'/'+ws.getDate() });
+  }
+
+  var months = [];
+  weeks.forEach(function(wk) {
+    var key = wk.date.getFullYear()+'-'+wk.date.getMonth();
+    var last = months[months.length-1];
+    if (!last||last.key!==key) months.push({key:key,name:MONTHS_LONG[wk.date.getMonth()].substring(0,3)+' '+wk.date.getFullYear(),x:wk.x,width:WEEK_W});
+    else last.width+=WEEK_W;
+  });
+
+  var cwWeek = weeks.filter(function(wk){return wk.isCurrent;})[0];
+  var cwX    = cwWeek ? cwWeek.x : -1;
+  var todayX = Math.round((now-tlStart)/86400000*WEEK_W/7);
+
+  var assigneeMap = {};
+  epics.forEach(function(e){ if(!assigneeMap[e.assignee]) assigneeMap[e.assignee]=[]; assigneeMap[e.assignee].push(e); });
+  var assignees = Object.keys(assigneeMap).filter(function(a){return a!=='Unassigned';}).sort();
+  if (assigneeMap['Unassigned']) assignees.push('Unassigned');
+
+  var rowData = assignees.map(function(assignee) {
+    var aEpics = assigneeMap[assignee].slice().sort(function(a,b){return a.startDate-b.startDate;});
+    var laneEnds = [];
+    aEpics.forEach(function(epic) {
+      var lane=-1;
+      for(var l=0;l<laneEnds.length;l++){ if(epic.startDate>=laneEnds[l]){lane=l;break;} }
+      if(lane===-1){lane=laneEnds.length;laneEnds.push(null);}
+      laneEnds[lane]=epic.endDate; epic._lane=lane;
+    });
+    var numLanes=Math.max(1,laneEnds.length);
+    return {assignee:assignee, epics:aEpics, rowHeight:ROW_PAD_TOP+numLanes*(BAR_H+BAR_GAP)-BAR_GAP+ROW_PAD_BOT};
+  });
+
+  iisaEpicTipMap = {};
+  epics.forEach(function(e){ iisaEpicTipMap[e.key]=e; });
+
+  var html = '';
+  // Header
+  html += '<div id="tl-header"><div class="tl-corner"><div class="corner-top">Month</div><div class="corner-bot">Week of</div></div>'
+        + '<div id="tl-header-canvas" style="width:'+totalWidth+'px">';
+  html += '<div class="month-row">';
+  months.forEach(function(m){ html+='<div class="month-cell" style="width:'+m.width+'px">'+esc(m.name)+'</div>'; });
+  html += '</div><div class="week-row">';
+  weeks.forEach(function(wk){ html+='<div class="week-cell'+(wk.isCurrent?' is-current':'')+'" style="width:'+WEEK_W+'px">'+esc(wk.label)+'</div>'; });
+  html += '</div></div></div>';
+  // Body
+  html += '<div id="tl-body">';
+  rowData.forEach(function(row) {
+    var isU = row.assignee==='Unassigned';
+    html += '<div class="tl-row">'
+          + '<div class="row-label'+(isU?' unassigned':'')+'" style="height:'+row.rowHeight+'px">'+esc(row.assignee)+'</div>'
+          + '<div class="row-canvas" style="width:'+totalWidth+'px;height:'+row.rowHeight+'px;'
+          + 'background-image:repeating-linear-gradient(to right,transparent,transparent '+(WEEK_W-1)+'px,#e8edf2 '+(WEEK_W-1)+'px,#e8edf2 '+WEEK_W+'px)">';
+    if (cwX>=0) html+='<div class="cw-band" style="left:'+cwX+'px;width:'+WEEK_W+'px"></div>';
+    html+='<div class="today-line" style="left:'+todayX+'px"></div>';
+    row.epics.forEach(function(epic) {
+      var x=Math.round((epic.startDate-tlStart)/86400000*WEEK_W/7);
+      var bw=Math.max(Math.round((epic.endDate-epic.startDate)/86400000*WEEK_W/7),32);
+      var y=ROW_PAD_TOP+epic._lane*(BAR_H+BAR_GAP);
+      var color=BACKLOG_COLOR[epic.backlog]||'#6366f1';
+      var sc=iisaStatusClass(epic.status);
+      html+='<div class="epic-bar '+sc+'" style="left:'+x+'px;top:'+y+'px;width:'+bw+'px;height:'+BAR_H+'px;background:'+color+'"'
+           +' data-key="'+esc(epic.key)+'"'
+           +' onmouseenter="iisaShowTip(event,this)" onmouseleave="iisaHideTip()" onmousemove="iisaMoveTip(event)">'
+           +'<span class="bar-text">'+esc(epic.summary)+'</span></div>';
+    });
+    html+='</div></div>';
+  });
+  html+='</div>';
+
+  document.getElementById('timeline-inner').innerHTML = html;
+
+  requestAnimationFrame(function() {
+    var c = document.getElementById('timeline-container');
+    c.scrollLeft = Math.max(0, todayX - (LABEL_W + 3*WEEK_W));
+  });
+}
+
+function iisaStatusClass(status) {
+  var s=(status||'').toLowerCase().trim();
+  if(['to do','todo','open','backlog','new'].indexOf(s)!==-1) return 'st-todo';
+  if(['in progress','in development','in review','in-progress','development','review','in dev'].indexOf(s)!==-1) return 'st-inprog';
+  if(['done','closed','resolved','complete','completed','released'].indexOf(s)!==-1) return 'st-done';
+  if(s==='blocked') return 'st-blocked';
+  return 'st-other';
+}
+
+/* ── Tooltip ──────────────────────────────────────────────────── */
+var tipEl = document.getElementById('iisa-tooltip');
+
+window.iisaShowTip = function(e, el) {
+  var epic = iisaEpicTipMap[el.dataset.key]; if(!epic) return;
+  var lblText  = epic.labels.length ? epic.labels.join(', ') : '—';
+  var dueText  = epic.dueDateRaw ? fmtDate(epic.dueDateRaw) : 'Not set (defaulted to today + 12 weeks)';
+  var barColor = BACKLOG_COLOR[epic.backlog]||'#6366f1';
+
+  // RAG row — only shown when the field is configured
+  var ragHtml = '';
+  if (iisaRagFieldPresent) {
+    var ragLabel = epic.ragStatus || '—';
+    var ragColor = iisaRagHexColor(epic.ragStatus);
+    ragHtml = '<div class="tt-row"><span class="tt-lbl">RAG</span>'
+            + '<span class="tt-val" style="display:flex;align-items:center;gap:5px">'
+            + '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+ragColor+';flex-shrink:0"></span>'
+            + esc(ragLabel)+'</span></div>';
+  }
+
+  tipEl.innerHTML =
+    '<div class="tt-key"><a href="https://coreweave.atlassian.net/browse/'+esc(epic.key)+'" target="_blank">'+esc(epic.key)+' ↗</a></div>'
+    +'<div class="tt-summary">'+esc(epic.summary)+'</div>'
+    +'<div class="tt-row"><span class="tt-lbl">Backlog</span><span class="tt-val" style="color:'+barColor+'">'+esc(epic.backlog)+'</span></div>'
+    +'<div class="tt-row"><span class="tt-lbl">Assignee</span><span class="tt-val">'+esc(epic.assignee)+'</span></div>'
+    +'<div class="tt-row"><span class="tt-lbl">Status</span><span class="tt-val">'+esc(epic.status)+'</span></div>'
+    + ragHtml
+    +'<div class="tt-row"><span class="tt-lbl">Due</span><span class="tt-val">'+esc(dueText)+'</span></div>'
+    +'<div class="tt-row"><span class="tt-lbl">Labels</span><span class="tt-val">'+esc(lblText)+'</span></div>';
+  tipEl.style.display='block'; iisaMoveTip(e);
+};
+window.iisaMoveTip = function(e) {
+  var x=e.clientX+15, y=e.clientY+15;
+  if(x+295>window.innerWidth)  x=e.clientX-305;
+  if(y+220>window.innerHeight) y=e.clientY-230;
+  tipEl.style.left=x+'px'; tipEl.style.top=y+'px';
+};
+window.iisaHideTip = function() { tipEl.style.display='none'; };
+
+/* ── RAG helpers ──────────────────────────────────────────────── */
+function iisaRagHexColor(ragStatus) {
+  if (!ragStatus) return '#94a3b8';
+  var s = ragStatus.toLowerCase().trim();
+  if (s === 'red'   || s === 'r') return '#ef4444';
+  if (s === 'amber' || s === 'a' || s === 'orange') return '#f59e0b';
+  if (s === 'green' || s === 'g') return '#22c55e';
+  return '#94a3b8';
+}
+
+function iisaRagCssClass(ragStatus) {
+  if (!ragStatus) return 'rag-grey';
+  var s = ragStatus.toLowerCase().trim();
+  if (s === 'red'   || s === 'r') return 'rag-red';
+  if (s === 'amber' || s === 'a' || s === 'orange') return 'rag-amber';
+  if (s === 'green' || s === 'g') return 'rag-green';
+  return 'rag-grey';
+}
+
+/* ── Dropdown toggle ──────────────────────────────────────────── */
+window.iisaToggleDropdown = function(ddId, evt) {
+  evt.stopPropagation();
+  var dd=document.getElementById(ddId), isOpen=dd.classList.contains('open');
+  document.querySelectorAll('#iisa-root .ms-dropdown.open').forEach(function(d){d.classList.remove('open');});
+  if(!isOpen) dd.classList.add('open');
+};
+document.addEventListener('click', function(e) {
+  if(!e.target.closest || !e.target.closest('.ms-wrapper')) {
+    document.querySelectorAll('#iisa-root .ms-dropdown.open').forEach(function(d){d.classList.remove('open');});
+  }
+});
+
+/* ── UI helpers ───────────────────────────────────────────────── */
+function iisaShowLoading(on) {
+  document.getElementById('loading-overlay').style.display = on?'flex':'none';
+}
+function iisaSetRefreshState(loading) {
+  var btn=document.getElementById('refresh-btn');
+  btn.disabled=loading; btn.classList.toggle('spinning',loading);
+}
+function iisaClearMessages() { document.getElementById('messages').innerHTML=''; }
+function iisaShowMsg(type, text) {
+  var div=document.createElement('div');
+  div.className=type==='error'?'msg-err':'msg-warn';
+  div.textContent=(type==='error'?'✕ ':'⚠ ')+text;
+  document.getElementById('messages').appendChild(div);
+}
+function iisaRenderEmpty(msg) {
+  document.getElementById('timeline-inner').innerHTML=
+    '<div id="empty-state"><div class="es-icon">🔍</div><div>'+esc(msg)+'</div></div>';
+}
+
+/* ── Init ─────────────────────────────────────────────────────── */
+iisaRefreshData();
+
+})(); // end IIFE namespace
+</script>
+        // (Make sure your GAS_URL is still pointing to your Google Apps Script Web App!)
+    </script>
+</body>
+</html>
